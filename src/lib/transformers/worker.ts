@@ -87,6 +87,8 @@ export interface AnalyzeStats {
     regexSpanCount?: number;
     /** Which NER engine produced this result ('semantic' = C/wasm, 'onnx' = comparison). */
     engine?: 'semantic' | 'onnx';
+    /** True when the input exceeded the scan cap and only a prefix was scanned. */
+    truncated?: boolean;
 }
 
 export interface AnalyzeOptions {

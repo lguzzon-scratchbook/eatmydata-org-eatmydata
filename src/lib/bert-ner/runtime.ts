@@ -84,7 +84,7 @@ const defaultLoaders: BertNerLoaders = {
     wasm: () => fetch(new URL('@/assets/wasm/semantic.wasm', import.meta.url)),
     gguf: async () => {
         const url = nerGgufUrl();
-        const fetchFresh = async (): Promise<Uint8Array> => {
+        const fetchFresh = async (): Promise<Uint8Array<ArrayBuffer>> => {
             const res = await fetch(url);
             const bytes = new Uint8Array(await res.arrayBuffer());
             if (!res.ok || !isGgufBytes(bytes)) {

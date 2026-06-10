@@ -15,14 +15,9 @@ interface ImportMeta {
     readonly env: ImportMetaEnv;
 }
 
-declare module 'virtual:worker-versions' {
-    /// Per-worker content hashes keyed by the `WorkerSpec.key` registered
-    /// in tools/vite-plugin-worker-version.ts. Each value is a 16-char hash
-    /// of that worker's sources, or the literal `'prod'` in production
-    /// builds. Consumers suffix their Worker `name` with the relevant entry
-    /// to bust a stale instance on dev rebuilds.
-    export const workerVersions: Record<string, string>;
-}
+// NOTE: `virtual:worker-versions` is typed in src/worker-versions.d.ts and
+// resolved via a tsconfig `paths` entry — an ambient `declare module` here is
+// not honored by tsc under bundler resolution.
 
 declare global {
     /** Root-relative base URL for the Transformers Worker's models +

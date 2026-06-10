@@ -2,10 +2,13 @@
 #
 # Upload the production bundle to the GCS buckets behind eatmydata.ai.
 #
-# Layout (see vite.config.ts): the demo .sqlite databases, the transformers
-# model/ort assets and the wa-sqlite/qjs engine wasm each live under a
-# top-level folder named by a checksum of their content; the app's JS/CSS
-# chunks live under a per-build `<pkg.version>-<timestamp>` folder.
+# Layout (see vite.config.ts): every Vite-bundled output — JS entry + chunks,
+# CSS, and the engine .wasm + bge-embed .gguf — is content-addressed under
+# cache/ (cache/<hash>-<name>.<ext>; same bytes -> same URL across releases).
+# The demo .sqlite databases and the transformers model/ort assets are copied
+# verbatim under a top-level folder named by a checksum of their content. Both
+# give rsync the same skip-if-unchanged property; index.html is the only
+# un-hashed, per-release file.
 #
 # Directories are pushed with `rsync`, which compares each local file
 # against the matching remote object (size + crc32c) and transfers ONLY
@@ -16,10 +19,10 @@
 #     next run (the missing objects simply don't match yet), instead of
 #     being mistaken for "done" and never finished.
 #
-# index.html is the un-hashed entry point: it references the new chunk
-# folder + the current content-addressed asset URLs, so it must go live
-# ONLY after everything it points at is uploaded. It is therefore deferred
-# to the very last write, immediately before the CDN purge.
+# index.html is the un-hashed entry point: it references the cache/ chunk +
+# asset URLs and the current content-addressed asset folders, so it must go
+# live ONLY after everything it points at is uploaded. It is therefore
+# deferred to the very last write, immediately before the CDN purge.
 #
 # The listed extensions are stored gzip-compressed (--gzip-in-flight; the
 # only gzip flag `rsync` accepts — `cp` takes it too), matching how the

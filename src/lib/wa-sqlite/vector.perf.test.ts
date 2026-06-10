@@ -41,7 +41,7 @@ function mkVec(seed: number, n: number): number[] {
 
 function median(xs: number[]): number {
     const s = [...xs].sort((a, b) => a - b);
-    return s[Math.floor(s.length / 2)];
+    return s[Math.floor(s.length / 2)]!;
 }
 
 async function topKIds(db: WaSqliteDb, fn: string, q: number[], k: number): Promise<number[]> {
@@ -97,12 +97,12 @@ describe('rh vector extension — performance', () => {
         const qbits = 4;
         const rows = await db
             .execRaw(`SELECT vector_quantize('docs','emb','qtype=turbo,qbits=${qbits}') AS v`)
-            .then((r) => Number(r.rows[0].v));
+            .then((r) => Number(r.rows[0]!.v));
         expect(rows).toBe(N);
 
         // --- memory ---
         const quantBytes = Number(
-            (await db.execRaw(`SELECT vector_quantize_memory('docs','emb') AS v`)).rows[0].v,
+            (await db.execRaw(`SELECT vector_quantize_memory('docs','emb') AS v`)).rows[0]!.v,
         );
         const rawBytes = N * DIM * 4; // exact f32 vectors
         const codeBytes = Math.ceil((DIM * qbits) / 8);

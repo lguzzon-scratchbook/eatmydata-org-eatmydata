@@ -80,8 +80,8 @@ describe('rh vector extension — vector_as_* encoders', () => {
             // half ~ 1e-3 relative, bf16 ~ 8e-3 relative; assert close, not exact.
             const tol = type === 'f16' ? 1e-2 : 1e-1;
             for (let i = 0; i < values.length; i++) {
-                expect(Math.abs(back[i] - values[i])).toBeLessThanOrEqual(
-                    tol * (Math.abs(values[i]) + 1e-3),
+                expect(Math.abs(back[i]! - values[i]!)).toBeLessThanOrEqual(
+                    tol * (Math.abs(values[i]!) + 1e-3),
                 );
             }
         }
@@ -320,7 +320,7 @@ describe('rh vector extension — vector_init + vector_full_scan', () => {
             `SELECT count(*) AS n FROM vector_full_scan('docs','emb',` +
                 ` vector_as_f32('${JSON.stringify(q)}'))`,
         );
-        expect(all.rows[0].n).toBe(N);
+        expect(all.rows[0]!.n).toBe(N);
         const limited = await db.execRaw(
             `SELECT rowid AS rid FROM vector_full_scan('docs','emb',` +
                 ` vector_as_f32('${JSON.stringify(q)}')) ORDER BY distance LIMIT 3`,
@@ -335,8 +335,8 @@ describe('rh vector extension — vector_init + vector_full_scan', () => {
             `SELECT rowid AS rid, distance FROM vector_full_scan('docs','emb',` +
                 ` vector_as_f32('${JSON.stringify(data[6])}'), 1)`,
         );
-        expect(Number(r.rows[0].rid)).toBe(7);
-        expect(Math.abs(Number(r.rows[0].distance))).toBeLessThan(1e-5);
+        expect(Number(r.rows[0]!.rid)).toBe(7);
+        expect(Math.abs(Number(r.rows[0]!.distance))).toBeLessThan(1e-5);
     });
 
     it('errors when the column was never vector_init-ed', async () => {

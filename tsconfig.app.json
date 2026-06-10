@@ -9,6 +9,7 @@
     "paths": {
       "@/registry/*": ["./contrib/shadcn-solid/apps/docs/src/registry/*"],
       "@app-config": ["./src/app-config.d.ts"],
+      "virtual:worker-versions": ["./src/worker-versions.d.ts"],
       "@/*": ["./src/*"]
     },
 

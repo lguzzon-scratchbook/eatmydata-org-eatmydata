@@ -8,23 +8,6 @@ import tailwindcss from '@tailwindcss/vite';
 import { workerVersion } from './tools/vite-plugin-worker-version';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { tsxElementBabelPlugin, tsxLocator } from './contrib/vite-plugin-tsx-locator/src/index';
-import pkg from './package.json';
-
-function bigintToBase62(val: bigint): string {
-    // eslint-disable-next-line no-secrets/no-secrets
-    const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-    let result = '';
-    const base = 62n;
-    if (val < 0n) {
-        val = val + 2n ** 64n;
-    }
-    while (val > 0) {
-        const remainder = val % base;
-        result = ALPHABET[Number(remainder)] + result;
-        val = val / base;
-    }
-    return result || '0';
-}
 
 /// Dir-relative file paths under `dir`, recursively, sorted per level.
 function collectFiles(dir: string, base = dir): string[] {
@@ -68,26 +51,25 @@ function hashAssetDir(dir: string): string {
 
 export default defineConfig(({ command }) => {
     const isProduction = 'production' == process.env.NODE_ENV;
-    const APP_VERSION =
-        command !== 'serve'
-            ? `${pkg.version}-${bigintToBase62(BigInt(+new Date()))}`
-            : 'src/assets';
     const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 
-    // Large static assets (the demo .sqlite databases, the Transformers
-    // Worker's models + tokenizers + ort wasm, and the wa-sqlite/qjs engine
-    // wasm) get a path keyed by a content checksum of their source folder —
-    // NOT the per-build APP_VERSION. An unchanged asset therefore keeps the
-    // same URL across releases, so deploy/deploy.sh can skip re-uploading it
-    // (and we don't balloon the CDN with byte-identical copies under fresh
-    // timestamps). In dev they stay under `src/assets/...` exactly as before;
-    // the checksum is computed only when bundling, never under `vite serve`.
+    // The large static assets that are NOT part of Vite's bundle graph — the
+    // demo .sqlite databases and the Transformers Worker's models + tokenizers
+    // + ort wasm (copied verbatim by viteStaticCopy and fetched at runtime via
+    // the injected *_ASSET_BASE globals) — get a path keyed by a content
+    // checksum of their source folder, NOT a per-build version. An unchanged
+    // asset therefore keeps the same URL across releases, so deploy/deploy.sh
+    // can skip re-uploading it (no byte-identical copies ballooning the CDN).
+    // The wa-sqlite/qjs/semantic engine wasm + bge-embed .gguf DO go through the
+    // bundle (`new URL('@/assets/…', import.meta.url)`) and land under cache/
+    // with a per-file content hash (see build.rollupOptions below) — the same
+    // stable-URL guarantee at finer granularity. In dev everything stays under
+    // `src/assets/...`; the checksum is computed only when bundling.
     const isServe = command === 'serve';
     const assetVersion = (rel: string): string =>
         isServe ? 'src/assets' : hashAssetDir(resolve(projectRoot, rel));
     const demoVersion = assetVersion('src/assets/demo');
     const transformersVersion = assetVersion('src/assets/transformers');
-    const wasmVersion = assetVersion('src/assets/wasm');
     // Root-relative bases injected as globals (below) and read at runtime by
     // demo-source.ts / transformers/worker.ts. Build: `/<hash>/demo`; dev:
     // `/src/assets/demo`.
@@ -181,29 +163,32 @@ export default defineConfig(({ command }) => {
             target: 'esnext',
             outDir: `dist/${isProduction ? 'production' : 'development'}`,
             copyPublicDir: true,
-            // App JS/CSS chunks + non-wasm assets stay under the per-build
-            // APP_VERSION folder (they change every release anyway). The wasm
-            // engine binaries (wa-sqlite.wasm, qjs.wasm) are routed to their
-            // own content-checksum folder so an unchanged engine build keeps a
-            // stable URL across releases — the `new URL('@/assets/wasm/…',
-            // import.meta.url)` references in runtime.ts / qjs.ts pick up this
-            // emitted path automatically.
-            assetsDir: APP_VERSION,
+            // Every bundled output — JS entry + chunks, CSS, and emitted assets
+            // (incl. the engine .wasm + bge-embed .gguf reached via
+            // `new URL('@/assets/…', import.meta.url)`) — is content-addressed
+            // under cache/. `[hash]` is a pure content hash, so a file whose
+            // bytes are unchanged keeps the SAME URL across releases and
+            // deploy/deploy.sh's rsync skips it. Only index.html carries
+            // per-release paths; it is the unversioned entry point, uploaded
+            // LAST after everything it references is already in place.
             rollupOptions: {
                 output: {
-                    assetFileNames: (info) => {
-                        const meta = info as { names?: string[]; name?: string };
-                        const names = meta.names ?? (meta.name ? [meta.name] : []);
-                        // Large engine binaries — wasm + the bge-embed .gguf weights —
-                        // go to the content-checksum folder so an unchanged build keeps
-                        // a stable URL across releases (no 67 MB re-download per deploy).
-                        const isEngineBinary = names.some(
-                            (n) => n.endsWith('.wasm') || n.endsWith('.gguf'),
-                        );
-                        return isEngineBinary
-                            ? `${wasmVersion}/[name]-[hash][extname]`
-                            : `${APP_VERSION}/[name]-[hash][extname]`;
-                    },
+                    assetFileNames: 'cache/[hash]-[name][extname]',
+                    chunkFileNames: 'cache/[hash]-[name].js',
+                    entryFileNames: 'cache/[hash]-[name].js',
+                },
+            },
+        },
+        // Worker bundles (wa-sqlite DedicatedWorker, transformers SharedWorker,
+        // the probe/test workers) are produced by a separate rollup pass; route
+        // them to the same content-addressed cache/ layout. Format is left at
+        // Vite's default — only the output paths change.
+        worker: {
+            rollupOptions: {
+                output: {
+                    assetFileNames: 'cache/[hash]-[name][extname]',
+                    chunkFileNames: 'cache/[hash]-[name].js',
+                    entryFileNames: 'cache/[hash]-[name].js',
                 },
             },
         },

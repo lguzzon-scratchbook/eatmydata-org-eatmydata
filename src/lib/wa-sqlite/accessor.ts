@@ -140,7 +140,7 @@ export class WaSqliteDbInstanceAccessor {
      * open. Returns `true` if the file was unlinked (or already gone), `false`
      * if it was skipped because a live peer holds it.
      */
-    async destroyOpfsIfIdle(name: string, filename: string): Promise<boolean> {
+    async destroyOpfsIfIdle(_name: string, filename: string): Promise<boolean> {
         const leaf = leafName(filename);
         // Do NOT close our own connection first: if this worker has the file
         // open, the held lock makes `tryWithVfsFileLock` skip — which is the

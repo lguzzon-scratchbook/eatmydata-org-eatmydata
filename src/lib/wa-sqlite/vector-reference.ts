@@ -31,7 +31,7 @@ export function f16ToF32(h: number): number {
 export function bf16ToF32(b: number): number {
     const buf = new ArrayBuffer(4);
     new Uint32Array(buf)[0] = b << 16;
-    return new Float32Array(buf)[0];
+    return new Float32Array(buf)[0]!;
 }
 
 export type RefType = 'f32' | 'f16' | 'bf16' | 'i8' | 'u8' | 'bit';
@@ -58,7 +58,7 @@ export function decode(type: RefType, bytes: Uint8Array, dim: number): number[] 
             return out;
         case 'bit':
             for (let i = 0; i < dim; i++) {
-                out.push((bytes[i >> 3] >> (i & 7)) & 1);
+                out.push((bytes[i >> 3]! >> (i & 7)) & 1);
             }
             return out;
     }
@@ -68,14 +68,14 @@ export function decode(type: RefType, bytes: Uint8Array, dim: number): number[] 
 
 export function dot(a: number[], b: number[]): number {
     let s = 0;
-    for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+    for (let i = 0; i < a.length; i++) s += a[i]! * b[i]!;
     return s;
 }
 
 export function squaredL2(a: number[], b: number[]): number {
     let s = 0;
     for (let i = 0; i < a.length; i++) {
-        const d = a[i] - b[i];
+        const d = a[i]! - b[i]!;
         s += d * d;
     }
     return s;
@@ -87,7 +87,7 @@ export function l2(a: number[], b: number[]): number {
 
 export function l1(a: number[], b: number[]): number {
     let s = 0;
-    for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+    for (let i = 0; i < a.length; i++) s += Math.abs(a[i]! - b[i]!);
     return s;
 }
 
