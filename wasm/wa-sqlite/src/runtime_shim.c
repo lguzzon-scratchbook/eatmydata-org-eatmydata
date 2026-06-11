@@ -22,10 +22,10 @@ static const char RH_BGE_QUERY_PREFIX[] =
 
 /*
 ** Embed a query phrase for the `vector_search` vtab. Defined HERE (not a JS env
-** import) because the BGE encoder is compiled straight into wa-sqlite.wasm —
-** the vtab's `xFilter` calls this synchronously and we run `sem_embed` in the
-** same module/memory, no JS hop. `zText` is the UTF-8 query (nText bytes);
-** `aOut` receives `nDim` float32 values.
+** import) because the semantic engine (BGE encoder + Model2Vec static embedder)
+** is compiled straight into wa-sqlite.wasm — the vtab's `xFilter` calls this
+** synchronously and we run `sem_embed` in the same module/memory, no JS hop.
+** `zText` is the UTF-8 query (nText bytes); `aOut` receives `nDim` float32 values.
 **
 ** Return codes match what vec-scan.c already handles:
 **   0  success (embedding written to aOut)
@@ -38,8 +38,17 @@ static const char RH_BGE_QUERY_PREFIX[] =
 */
 __attribute__((used, visibility("default")))
 int analyst_embed_query(const char *zText, int nText, float *aOut, int nDim) {
-    if (sem_kind() != SEM_KIND_EMBED || sem_dim() <= 0) return 1; /* not warmed */
-    if (sem_dim() != nDim) return 2;                              /* dim mismatch */
+    int kind = sem_kind();
+    if ((kind != SEM_KIND_EMBED && kind != SEM_KIND_STATIC) || sem_dim() <= 0)
+        return 1;                     /* not warmed */
+    if (sem_dim() != nDim) return 2;  /* dim mismatch */
+    if (kind == SEM_KIND_STATIC) {
+        /* Model2Vec is SYMMETRIC (bag-of-words static table): the query is embedded
+        ** RAW, exactly like stored passages — the BGE asymmetric instruction prefix
+        ** would just inject extra tokens into the mean and hurt recall. */
+        int rc = sem_embed(zText, nText, aOut);
+        return rc == SEM_OK ? 0 : 3;
+    }
     char *z = sqlite3_mprintf("%s%.*s", RH_BGE_QUERY_PREFIX, nText, zText);
     if (!z) return 3;
     int rc = sem_embed(z, -1, aOut); /* len<0 => strlen; writes sem_dim() floats */
